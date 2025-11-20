@@ -1,0 +1,5 @@
+.env
+__pycache__
+venv
+clean_training_data.csv
+expiry_model.pkl
