@@ -109,12 +109,24 @@ def process_data():
     
     df['Risk_Label'] = (df['Days_To_Sell_Stock'] > df['Days_Until_Expiry']).astype(int)
 
+    # Stochastic label flipping (~12%) to simulate real-world labeling noise
+    # Without this, Risk_Label is a perfect deterministic function of the inputs
+    flip_rate = 0.12
+    flip_mask = np.random.random(len(df)) < flip_rate
+    df.loc[flip_mask, 'Risk_Label'] = 1 - df.loc[flip_mask, 'Risk_Label']
+
+    # Derived features for richer model input
+    df['Stock_Turnover_Ratio'] = df['Avg_Daily_Sales'] / df['Quantity'].replace(0, 0.001)
+    df['Price_Per_Unit_Sold'] = df['Price'] / df['Avg_Daily_Sales'].replace(0, 0.001)
+
     # 4. Clean Data
     # Fill missing values
     df.fillna(0, inplace=True)
     
     # Select only necessary columns for training/output
-    cols_to_keep = ['Item', 'Price', 'Quantity', 'Avg_Daily_Sales', 'Days_Until_Expiry', 'Risk_Label', 'Category']
+    cols_to_keep = ['Item', 'Price', 'Quantity', 'Avg_Daily_Sales', 'Days_Until_Expiry',
+                    'Stock_Turnover_Ratio', 'Price_Per_Unit_Sold',
+                    'Risk_Label', 'Category']
     # Only keep columns that exist
     cols_to_keep = [c for c in cols_to_keep if c in df.columns]
     

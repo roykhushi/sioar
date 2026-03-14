@@ -101,6 +101,11 @@ with st.container():
         with c2:
             quantity = st.number_input("Quantity", min_value=0, step=1)
             days_until_expiry = st.number_input("Days Until Expiry", min_value=0, step=1)
+        category = st.selectbox(
+            "Category",
+            ["Dairy", "Bakery", "Produce", "Meat", "Canned", "Frozen",
+             "Beverages", "Snacks", "Grains & Pulses", "Unknown"]
+        )
         submitted = st.form_submit_button("Predict")
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -110,6 +115,7 @@ if submitted:
         "quantity": int(quantity),
         "avg_daily_sales": float(avg_daily_sales),
         "days_until_expiry": int(days_until_expiry),
+        "category": category,
     }
     try:
         prediction = api_post("/predict", payload)

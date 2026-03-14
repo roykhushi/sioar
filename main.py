@@ -11,6 +11,7 @@ class ItemDetails(BaseModel):
     quantity: int
     avg_daily_sales: float
     days_until_expiry: int
+    category: str = "Unknown"
 
 class CategoryInput(BaseModel):
     category: str
@@ -35,7 +36,8 @@ def predict_risk(item: ItemDetails):
             item.price, 
             item.quantity, 
             item.avg_daily_sales, 
-            item.days_until_expiry
+            item.days_until_expiry,
+            item.category
         )
         return result
     except FileNotFoundError:
