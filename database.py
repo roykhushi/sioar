@@ -1,16 +1,15 @@
-"""
-MongoDB database configuration and models for Smart-Food Link
-"""
-
 import motor.motor_asyncio
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field
 from bson import ObjectId
+import os
+from dotenv import load_dotenv
 
-# MongoDB Connection URL
-MONGODB_URL = "mongodb://localhost:27017"
-DATABASE_NAME = "smart_food_link"
+load_dotenv()
+
+MONGODB_URL = os.getenv("MONGODB_URI")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "Smart_Food_Link")
 
 # Initialize async MongoDB client
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
@@ -19,12 +18,7 @@ db = client[DATABASE_NAME]
 # Collections
 ngos_collection = db["ngos"]
 predictions_collection = db["predictions"]
-donations_collection = db["donations"]
 
-
-# ═══════════════════════════════════════════════════════════════
-# PYDANTIC MODELS (for validation)
-# ═══════════════════════════════════════════════════════════════
 
 class AddressModel(BaseModel):
     street: Optional[str] = None
@@ -68,31 +62,12 @@ class PredictionModel(BaseModel):
         populate_by_name = True
 
 
-class DonationModel(BaseModel):
-    id: Optional[str] = Field(default=None, alias="_id")
-    prediction_id: str  # ObjectId as string
-    ngo_id: str  # ObjectId as string
-    item_name: str
-    quantity: int
-    donor_notes: Optional[str] = None
-    status: str = "pending"  # pending, confirmed, completed
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Config:
-        populate_by_name = True
-
-
-# ═══════════════════════════════════════════════════════════════
-# DATABASE OPERATIONS - NGOs
-# ═══════════════════════════════════════════════════════════════
-
-async def create_ngo(ngo_data: dict) -> dict:
-    """Create a new NGO record"""
-    ngo_data["created_at"] = datetime.utcnow()
-    ngo_data["updated_at"] = datetime.utcnow()
-    result = await ngos_collection.insert_one(ngo_data)
-    return {"_id": str(result.inserted_id), **ngo_data}
+# async def create_ngo(ngo_data: dict) -> dict:
+#     """Create a new NGO record"""
+#     ngo_data["created_at"] = datetime.utcnow()
+#     ngo_data["updated_at"] = datetime.utcnow()
+#     result = await ngos_collection.insert_one(ngo_data)
+#     return {"_id": str(result.inserted_id), **ngo_data}
 
 
 async def get_all_ngos() -> List[dict]:
@@ -128,28 +103,25 @@ async def get_ngos_by_category(category: str) -> List[dict]:
     return ngos
 
 
-async def update_ngo(ngo_id: str, update_data: dict) -> bool:
-    """Update an NGO record"""
-    update_data["updated_at"] = datetime.utcnow()
-    result = await ngos_collection.update_one(
-        {"_id": ObjectId(ngo_id)},
-        {"$set": update_data}
-    )
-    return result.modified_count > 0
+# async def update_ngo(ngo_id: str, update_data: dict) -> bool:
+#     """Update an NGO record"""
+#     update_data["updated_at"] = datetime.utcnow()
+#     result = await ngos_collection.update_one(
+#         {"_id": ObjectId(ngo_id)},
+#         {"$set": update_data}
+#     )
+#     return result.modified_count > 0
 
 
-async def delete_ngo(ngo_id: str) -> bool:
-    """Soft delete an NGO (set active to False)"""
-    result = await ngos_collection.update_one(
-        {"_id": ObjectId(ngo_id)},
-        {"$set": {"active": False, "updated_at": datetime.utcnow()}}
-    )
-    return result.modified_count > 0
+# async def delete_ngo(ngo_id: str) -> bool:
+#     """Soft delete an NGO (set active to False)"""
+#     result = await ngos_collection.update_one(
+#         {"_id": ObjectId(ngo_id)},
+#         {"$set": {"active": False, "updated_at": datetime.utcnow()}}
+#     )
+#     return result.modified_count > 0
 
 
-# ═══════════════════════════════════════════════════════════════
-# DATABASE OPERATIONS - PREDICTIONS
-# ═══════════════════════════════════════════════════════════════
 
 async def create_prediction(prediction_data: dict) -> dict:
     """Create a new prediction record"""
@@ -211,119 +183,16 @@ async def get_predictions_stats() -> dict:
     }
 
 
-# ═══════════════════════════════════════════════════════════════
-# DATABASE OPERATIONS - DONATIONS
-# ═══════════════════════════════════════════════════════════════
+# async def init_db():
+#     """Initialize database indexes"""
+#     # NGO indexes
+#     await ngos_collection.create_index("name")
+#     await ngos_collection.create_index("active")
+#     await ngos_collection.create_index("categories_accepted")
 
-async def create_donation(donation_data: dict) -> dict:
-    """Create a new donation record"""
-    donation_data["created_at"] = datetime.utcnow()
-    donation_data["updated_at"] = datetime.utcnow()
-    result = await donations_collection.insert_one(donation_data)
-    return {"_id": str(result.inserted_id), **donation_data}
-
-
-async def get_donations_by_ngo(ngo_id: str, status: Optional[str] = None) -> List[dict]:
-    """Get donations for a specific NGO"""
-    query = {"ngo_id": ngo_id}
-    if status:
-        query["status"] = status
-
-    donations = []
-    cursor = donations_collection.find(query).sort("created_at", -1)
-    async for donation in cursor:
-        donation["id"] = str(donation["_id"])
-        donations.append(donation)
-    return donations
+#     # Prediction indexes
+#     await predictions_collection.create_index("created_at")
+#     await predictions_collection.create_index("risk_level")
+#     await predictions_collection.create_index("category")
 
 
-async def update_donation_status(donation_id: str, status: str) -> bool:
-    """Update donation status"""
-    result = await donations_collection.update_one(
-        {"_id": ObjectId(donation_id)},
-        {"$set": {"status": status, "updated_at": datetime.utcnow()}}
-    )
-    return result.modified_count > 0
-
-
-# ═══════════════════════════════════════════════════════════════
-# DATABASE INITIALIZATION
-# ═══════════════════════════════════════════════════════════════
-
-async def init_db():
-    """Initialize database indexes"""
-    # NGO indexes
-    await ngos_collection.create_index("name")
-    await ngos_collection.create_index("active")
-    await ngos_collection.create_index("categories_accepted")
-
-    # Prediction indexes
-    await predictions_collection.create_index("created_at")
-    await predictions_collection.create_index("risk_level")
-    await predictions_collection.create_index("category")
-
-    # Donation indexes
-    await donations_collection.create_index("ngo_id")
-    await donations_collection.create_index("status")
-    await donations_collection.create_index("created_at")
-
-
-# ═══════════════════════════════════════════════════════════════
-# SEED INITIAL DATA
-# ═══════════════════════════════════════════════════════════════
-
-async def seed_ngos():
-    """Seed initial NGO data"""
-    count = await ngos_collection.count_documents({})
-    if count == 0:
-        initial_ngos = [
-            {
-                "name": "City Food Bank",
-                "location": "Downtown, City Center",
-                "contact": "+91-8800-111-222",
-                "email": "contact@cityfoodbank.org",
-                "categories_accepted": ["Canned", "Bakery", "Produce"],
-                "address": {
-                    "street": "123 Main St",
-                    "city": "Mumbai",
-                    "state": "Maharashtra",
-                    "zipcode": "400001"
-                },
-                "active": True,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            },
-            {
-                "name": "Hope Shelter",
-                "location": "North District",
-                "contact": "+91-9900-333-444",
-                "email": "contact@hopeshelter.org",
-                "categories_accepted": ["Dairy", "Meat", "Frozen"],
-                "address": {
-                    "street": "456 North Ave",
-                    "city": "Mumbai",
-                    "state": "Maharashtra",
-                    "zipcode": "400010"
-                },
-                "active": True,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            },
-            {
-                "name": "Community Kitchen",
-                "location": "East Zone",
-                "contact": "+91-8833-555-666",
-                "email": "contact@communitykitchen.org",
-                "categories_accepted": ["Produce", "Bakery", "Snacks"],
-                "address": {
-                    "street": "789 East Rd",
-                    "city": "Mumbai",
-                    "state": "Maharashtra",
-                    "zipcode": "400020"
-                },
-                "active": True,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            }
-        ]
-        await ngos_collection.insert_many(initial_ngos)
