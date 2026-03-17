@@ -15,6 +15,7 @@ const CATEGORIES = [
 ];
 
 interface NGO {
+  id: number;
   name: string;
   location: string;
   contact: string;
@@ -139,18 +140,22 @@ export default function MatchPage() {
                 <div className="bg-secondary/40 rounded-2xl p-5 border border-border/50">
                   <p className="font-semibold text-foreground mb-3">Accepted Categories</p>
                   <div className="flex flex-wrap gap-2">
-                    {data.categories_accepted.map(cat => (
-                      <span
-                        key={cat}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
-                          cat === category
-                            ? "bg-primary text-white shadow-sm"
-                            : "bg-background border border-border text-foreground"
-                        }`}
-                      >
-                        {cat} {cat === category && "✓"}
-                      </span>
-                    ))}
+                    {data.categories_accepted && data.categories_accepted.length > 0 ? (
+                      data.categories_accepted.map(cat => (
+                        <span
+                          key={cat}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                            cat === category
+                              ? "bg-primary text-white shadow-sm"
+                              : "bg-background border border-border text-foreground"
+                          }`}
+                        >
+                          {cat} {cat === category && "✓"}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No categories specified</span>
+                    )}
                   </div>
                 </div>
               </div>

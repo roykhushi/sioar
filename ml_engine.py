@@ -63,7 +63,11 @@ def train_model():
 
     base_estimators = [
         ('rf', RandomForestClassifier(n_estimators=150, max_depth=10, random_state=42)),
-        ('gb', GradientBoostingClassifier(n_estimators=150, max_depth=5, learning_rate=0.1, random_state=42)),
+        ('gb', GradientBoostingClassifier(
+            n_estimators=100, max_depth=3, learning_rate=0.05,
+            subsample=0.8, min_samples_split=10, min_samples_leaf=5,
+            random_state=42
+        )),
         ('lr', LogisticRegression(max_iter=1000, random_state=42)),
     ]
 
@@ -175,16 +179,26 @@ def predict_item(price, stock, sales, days_left, category="Unknown"):
     risk_prob = clf.predict_proba(input_scaled)[0][1]  # Probability of class 1 (Risk)
     risk_label = clf.predict(input_scaled)[0]
 
+    # Determine risk level based on probability
+    if risk_prob > 0.7:
+        risk_level = "High"
+    elif risk_prob > 0.4:
+        risk_level = "Medium"
+    else:
+        risk_level = "Low"
+
     # Action logic
     result = {
-        "Risk_Level": "Critical" if risk_label == 1 else "Safe",
+        "Risk_Level": risk_level,
         "Probability": round(float(risk_prob), 2)
     }
 
     if risk_prob > 0.8:
         result["Action"] = "Donate to NGO"
-    elif risk_label == 1:
+    elif risk_level == "High":
         result["Action"] = "Discount 30%"
+    elif risk_level == "Medium":
+        result["Action"] = "Discount 15%"
     else:
         result["Action"] = "Keep Price"
 

@@ -36,7 +36,7 @@ export default function NgosPage() {
 
   const filteredNgos = ngos.filter(ngo =>
     ngo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ngo.categories_accepted.some(cat => cat.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (ngo.categories_accepted && ngo.categories_accepted.some(cat => cat.toLowerCase().includes(searchTerm.toLowerCase()))) ||
     ngo.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -134,11 +134,15 @@ export default function NgosPage() {
                 <div className="mb-6">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Accepts</p>
                   <div className="flex flex-wrap gap-2">
-                    {ngo.categories_accepted.map(cat => (
-                      <span key={cat} className="px-2.5 py-1 bg-secondary text-secondary-foreground text-xs font-medium rounded-md border border-border/50">
-                        {cat}
-                      </span>
-                    ))}
+                    {ngo.categories_accepted && ngo.categories_accepted.length > 0 ? (
+                      ngo.categories_accepted.map(cat => (
+                        <span key={cat} className="px-2.5 py-1 bg-secondary text-secondary-foreground text-xs font-medium rounded-md border border-border/50">
+                          {cat}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No categories specified</span>
+                    )}
                   </div>
                 </div>
 
