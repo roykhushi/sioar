@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import ml_engine
 import data_processor
@@ -10,8 +9,10 @@ from database import (
     create_prediction,
     get_all_predictions,
     get_predictions_stats,
-    init_db,
-    seed_ngos
+    count_high_risk_predictions,
+    count_donation_predictions,
+    get_waste_prevented,
+    get_active_ngos_count,
 )
 
 class ItemDetails(BaseModel):
@@ -25,21 +26,9 @@ class CategoryInput(BaseModel):
     category: str
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: Initialize database
-    await init_db()
-    await seed_ngos()
-    print("✅ Database initialized")
-    yield
-    # Shutdown: Clean up if needed
-    print("🔴 Shutting down...")
-
-
 app = FastAPI(
     title="Smart-Food Link API",
     version="1.0",
-    lifespan=lifespan
 )
 
 # Enable CORS for frontend communication
@@ -179,6 +168,85 @@ async def get_prediction_stats():
     try:
         stats = await get_predictions_stats()
         return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════════
+# DASHBOARD ENDPOINTS
+# ═══════════════════════════════════════════════════════════════
+
+@app.get("/dashboard/high-risk-count")
+async def get_high_risk_count():
+    """
+    Returns count of high-risk items for dashboard.
+    """
+    try:
+        count = await count_high_risk_predictions()
+        return {"high_risk_count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/dashboard/donations-count")
+async def get_donations_count():
+    """
+    Returns count of items marked for donation.
+    """
+    try:
+        count = await count_donation_predictions()
+        return {"donations_count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/dashboard/waste-prevented")
+async def get_waste_prevented_endpoint():
+    """
+    Returns total kg of waste prevented (sum of high-risk donation quantities).
+    """
+    try:
+        waste_kg = await get_waste_prevented()
+        return {"waste_prevented_kg": waste_kg}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/dashboard/active-ngos-count")
+async def get_active_ngos():
+    """
+    Returns count of active NGOs.
+    """
+    try:
+        count = await get_active_ngos_count()
+        return {"active_ngos_count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/dashboard/metrics")
+async def get_all_dashboard_metrics():
+    """
+    Returns all dashboard metrics in one call (optimized).
+    """
+    try:
+        high_risk = await count_high_risk_predictions()
+        donations = await count_donation_predictions()
+        waste = await get_waste_prevented()
+        ngos = await get_active_ngos_count()
+        stats = await get_predictions_stats()
+
+        return {
+            "high_risk_count": high_risk,
+            "donations_count": donations,
+            "waste_prevented_kg": waste,
+            "active_ngos_count": ngos,
+            "risk_distribution": {
+                "High": stats["High"],
+                "Medium": stats["Medium"],
+                "Low": stats["Low"]
+            }
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

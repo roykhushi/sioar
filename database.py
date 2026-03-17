@@ -75,8 +75,7 @@ async def get_all_ngos() -> List[dict]:
     ngos = []
     cursor = ngos_collection.find({"active": True})
     async for ngo in cursor:
-        ngo["_id"] = str(ngo["_id"])
-        ngo["id"] = ngo.pop("_id")
+        ngo["_id"] = str(ngo["_id"])  # Convert ObjectId to string
         ngos.append(ngo)
     return ngos
 
@@ -98,7 +97,7 @@ async def get_ngos_by_category(category: str) -> List[dict]:
         "categories_accepted": category
     })
     async for ngo in cursor:
-        ngo["id"] = str(ngo["_id"])
+        ngo["_id"] = str(ngo["_id"])  # Convert ObjectId to string
         ngos.append(ngo)
     return ngos
 
@@ -125,7 +124,7 @@ async def get_ngos_by_category(category: str) -> List[dict]:
 
 async def create_prediction(prediction_data: dict) -> dict:
     """Create a new prediction record"""
-    prediction_data["created_at"] = datetime.utcnow()
+    prediction_data["created_at"] = datetime.now(datetime.timezone.utc)
     prediction_data["updated_at"] = datetime.utcnow()
     result = await predictions_collection.insert_one(prediction_data)
     return {"_id": str(result.inserted_id), **prediction_data}
@@ -137,7 +136,7 @@ async def get_all_predictions(limit: int = 100, org_id: Optional[str] = None) ->
     predictions = []
     cursor = predictions_collection.find(query).sort("created_at", -1).limit(limit)
     async for pred in cursor:
-        pred["id"] = str(pred["_id"])
+        pred["_id"] = str(pred["_id"])  # Convert ObjectId to string
         predictions.append(pred)
     return predictions
 
@@ -146,7 +145,7 @@ async def get_prediction_by_id(pred_id: str) -> Optional[dict]:
     """Get a specific prediction by ID"""
     prediction = await predictions_collection.find_one({"_id": ObjectId(pred_id)})
     if prediction:
-        prediction["id"] = str(prediction["_id"])
+        prediction["_id"] = str(prediction["_id"])  # Convert ObjectId to string
         return prediction
     return None
 
@@ -156,7 +155,7 @@ async def get_predictions_by_risk_level(risk_level: str, limit: int = 50) -> Lis
     predictions = []
     cursor = predictions_collection.find({"risk_level": risk_level}).limit(limit)
     async for pred in cursor:
-        pred["id"] = str(pred["_id"])
+        pred["_id"] = str(pred["_id"])  # Convert ObjectId to string
         predictions.append(pred)
     return predictions
 
@@ -181,6 +180,53 @@ async def get_predictions_stats() -> dict:
         "Low": stats.get("Low", 0),
         "total": sum(stats.values())
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# DASHBOARD METRICS FUNCTIONS
+# ═══════════════════════════════════════════════════════════════
+
+async def count_high_risk_predictions() -> int:
+    """Count predictions with High risk level"""
+    count = await predictions_collection.count_documents({"risk_level": "High"})
+    return count
+
+
+async def count_donation_predictions() -> int:
+    """Count predictions marked for donation"""
+    count = await predictions_collection.count_documents({"action": "Donate to NGO"})
+    return count
+
+
+async def get_waste_prevented() -> float:
+    """Calculate total waste prevented (sum of quantities from high-risk donations)"""
+    pipeline = [
+        {
+            "$match": {
+                "risk_level": "High",
+                "action": "Donate to NGO"
+            }
+        },
+        {
+            "$group": {
+                "_id": None,
+                "total_quantity": {"$sum": "$quantity"}
+            }
+        }
+    ]
+
+    result = None
+    async for item in predictions_collection.aggregate(pipeline):
+        result = item
+        break
+
+    return result["total_quantity"] if result else 0
+
+
+async def get_active_ngos_count() -> int:
+    """Count active NGOs"""
+    count = await ngos_collection.count_documents({"active": True})
+    return count
 
 
 # async def init_db():
