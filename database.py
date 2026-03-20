@@ -1,5 +1,5 @@
 import motor.motor_asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from pydantic import BaseModel, Field
 from bson import ObjectId
@@ -36,8 +36,8 @@ class NGOModel(BaseModel):
     categories_accepted: List[str]
     address: Optional[AddressModel] = None
     active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         populate_by_name = True
@@ -55,8 +55,8 @@ class PredictionModel(BaseModel):
     probability: float
     action: str
     organization_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         populate_by_name = True
@@ -124,8 +124,8 @@ async def get_ngos_by_category(category: str) -> List[dict]:
 
 async def create_prediction(prediction_data: dict) -> dict:
     """Create a new prediction record"""
-    prediction_data["created_at"] = datetime.now(datetime.timezone.utc)
-    prediction_data["updated_at"] = datetime.utcnow()
+    prediction_data["created_at"] = datetime.now(timezone.utc)
+    prediction_data["updated_at"] = datetime.now(timezone.utc)
     result = await predictions_collection.insert_one(prediction_data)
     return {"_id": str(result.inserted_id), **prediction_data}
 

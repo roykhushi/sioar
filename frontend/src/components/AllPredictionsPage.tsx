@@ -145,7 +145,7 @@ export default function AllPredictionsPage() {
       </div>
 
       {/* Predictions Table */}
-      <SectionCard title="Predictions" className="min-h-[500px]">
+      <SectionCard title="Predictions" className="min-h-125">
         <div className="overflow-x-auto -mx-6 sm:mx-0">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground uppercase bg-secondary/30 sticky top-0">

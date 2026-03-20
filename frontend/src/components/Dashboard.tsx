@@ -155,13 +155,6 @@ export default function Dashboard() {
             <Activity size={16} className={isTraining ? "animate-pulse" : ""} />
             {isTraining ? "Training..." : "Retrain AI"}
           </button>
-          <Link
-            href="/predict"
-            className="px-4 py-2 bg-linear-to-r from-primary to-emerald-500 text-white font-semibold rounded-xl shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2 text-sm"
-          >
-            <BrainCircuit size={16} />
-            New Prediction
-          </Link>
         </div>
       </div>
 
