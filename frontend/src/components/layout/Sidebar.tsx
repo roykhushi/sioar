@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation"; // ← replaces useLocation from wouter
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, BrainCircuit, Building2,
-  HeartHandshake, Settings, Menu, X, Leaf
+  HeartHandshake, UserCircle, Menu, X, Leaf, LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/src/components/AuthContext";
 import axios from "axios";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
@@ -18,7 +19,7 @@ const NAV_ITEMS = [
   { href: "/predict", label: "Risk Prediction", icon: BrainCircuit },
   { href: "/match", label: "Donation Match", icon: HeartHandshake },
   { href: "/ngos", label: "NGO Directory", icon: Building2 },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/profile", label: "Profile", icon: UserCircle },
 ];
 
 function ApiStatusIndicator() {
@@ -31,7 +32,7 @@ function ApiStatusIndicator() {
         .catch(() => setIsHealthy(false));
     };
     check();
-    const interval = setInterval(check, 30000); // recheck every 30s
+    const interval = setInterval(check, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -55,13 +56,19 @@ function ApiStatusIndicator() {
 }
 
 export function Sidebar() {
-  const pathname = usePathname(); // ← replaces useLocation from wouter
+  const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
 
-  // Close mobile menu on route change
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
+
+  const handleLogout = () => {
+    logout();
+    router.push("/signin");
+  };
 
   return (
     <>
@@ -99,8 +106,17 @@ export function Sidebar() {
           })}
         </div>
 
-        <div className="p-4 border-t border-border/40 bg-card/50">
+        <div className="p-4 border-t border-border/40 bg-card/50 space-y-3">
           <ApiStatusIndicator />
+          {user && (
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+            >
+              <LogOut size={16} />
+              Sign Out
+            </button>
+          )}
         </div>
       </aside>
 
@@ -148,7 +164,18 @@ export function Sidebar() {
                   </Link>
                 );
               })}
+
+              {user && (
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-3 px-4 py-4 rounded-xl transition-colors font-medium text-base text-destructive hover:bg-destructive/10 w-full"
+                >
+                  <LogOut size={20} />
+                  Sign Out
+                </button>
+              )}
             </div>
+
             <div className="absolute bottom-0 inset-x-0 p-4 border-t border-border">
               <ApiStatusIndicator />
             </div>
@@ -158,5 +185,3 @@ export function Sidebar() {
     </>
   );
 }
-
-
