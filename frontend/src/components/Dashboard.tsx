@@ -51,6 +51,15 @@ export default function Dashboard() {
     setMounted(true);
   }, []);
 
+  // Show welcome toast after login/signup redirect
+  useEffect(() => {
+    const authToast = sessionStorage.getItem("auth_toast");
+    if (authToast) {
+      toast.success(authToast);
+      sessionStorage.removeItem("auth_toast");
+    }
+  }, []);
+
   // Fetch dashboard metrics
   useEffect(() => {
     const fetchDashboardData = async () => {

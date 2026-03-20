@@ -18,6 +18,7 @@ db = client[DATABASE_NAME]
 # Collections
 ngos_collection = db["ngos"]
 predictions_collection = db["predictions"]
+users_collection = db["users"]
 
 
 class AddressModel(BaseModel):
@@ -54,7 +55,7 @@ class PredictionModel(BaseModel):
     risk_level: str  # "High", "Medium", "Low"
     probability: float
     action: str
-    organization_id: Optional[str] = None
+    user_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -130,13 +131,13 @@ async def create_prediction(prediction_data: dict) -> dict:
     return {"_id": str(result.inserted_id), **prediction_data}
 
 
-async def get_all_predictions(limit: int = 100, org_id: Optional[str] = None) -> List[dict]:
-    """Get recent predictions"""
-    query = {} if org_id is None else {"organization_id": org_id}
+async def get_all_predictions(limit: int = 100, user_id: Optional[str] = None) -> List[dict]:
+    """Get recent predictions, scoped to a user when user_id is provided"""
+    query = {} if user_id is None else {"user_id": user_id}
     predictions = []
     cursor = predictions_collection.find(query).sort("created_at", -1).limit(limit)
     async for pred in cursor:
-        pred["_id"] = str(pred["_id"])  # Convert ObjectId to string
+        pred["_id"] = str(pred["_id"])
         predictions.append(pred)
     return predictions
 
@@ -160,16 +161,17 @@ async def get_predictions_by_risk_level(risk_level: str, limit: int = 50) -> Lis
     return predictions
 
 
-async def get_predictions_stats() -> dict:
-    """Get statistics about predictions"""
-    pipeline = [
-        {
-            "$group": {
-                "_id": "$risk_level",
-                "count": {"$sum": 1}
-            }
+async def get_predictions_stats(user_id: Optional[str] = None) -> dict:
+    """Get statistics about predictions, scoped to a user when user_id is provided"""
+    pipeline = []
+    if user_id:
+        pipeline.append({"$match": {"user_id": user_id}})
+    pipeline.append({
+        "$group": {
+            "_id": "$risk_level",
+            "count": {"$sum": 1}
         }
-    ]
+    })
     stats = {}
     async for item in predictions_collection.aggregate(pipeline):
         stats[item["_id"]] = item["count"]
@@ -186,33 +188,31 @@ async def get_predictions_stats() -> dict:
 # DASHBOARD METRICS FUNCTIONS
 # ═══════════════════════════════════════════════════════════════
 
-async def count_high_risk_predictions() -> int:
-    """Count predictions with High risk level"""
-    count = await predictions_collection.count_documents({"risk_level": "High"})
-    return count
+async def count_high_risk_predictions(user_id: Optional[str] = None) -> int:
+    """Count predictions with High risk level, scoped to user"""
+    query: dict = {"risk_level": "High"}
+    if user_id:
+        query["user_id"] = user_id
+    return await predictions_collection.count_documents(query)
 
 
-async def count_donation_predictions() -> int:
-    """Count predictions marked for donation"""
-    count = await predictions_collection.count_documents({"action": "Donate to NGO"})
-    return count
+async def count_donation_predictions(user_id: Optional[str] = None) -> int:
+    """Count predictions marked for donation, scoped to user"""
+    query: dict = {"action": "Donate to NGO"}
+    if user_id:
+        query["user_id"] = user_id
+    return await predictions_collection.count_documents(query)
 
 
-async def get_waste_prevented() -> float:
-    """Calculate total waste prevented (sum of quantities from high-risk donations)"""
+async def get_waste_prevented(user_id: Optional[str] = None) -> float:
+    """Calculate total waste prevented, scoped to user"""
+    match_stage: dict = {"risk_level": "High", "action": "Donate to NGO"}
+    if user_id:
+        match_stage["user_id"] = user_id
+
     pipeline = [
-        {
-            "$match": {
-                "risk_level": "High",
-                "action": "Donate to NGO"
-            }
-        },
-        {
-            "$group": {
-                "_id": None,
-                "total_quantity": {"$sum": "$quantity"}
-            }
-        }
+        {"$match": match_stage},
+        {"$group": {"_id": None, "total_quantity": {"$sum": "$quantity"}}},
     ]
 
     result = None
@@ -229,16 +229,32 @@ async def get_active_ngos_count() -> int:
     return count
 
 
-# async def init_db():
-#     """Initialize database indexes"""
-#     # NGO indexes
-#     await ngos_collection.create_index("name")
-#     await ngos_collection.create_index("active")
-#     await ngos_collection.create_index("categories_accepted")
+# ═══════════════════════════════════════════════════════════════
+# USER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════
 
-#     # Prediction indexes
-#     await predictions_collection.create_index("created_at")
-#     await predictions_collection.create_index("risk_level")
-#     await predictions_collection.create_index("category")
+async def create_user(user_data: dict) -> dict:
+    """Create a new user record"""
+    user_data["created_at"] = datetime.now(timezone.utc)
+    user_data["updated_at"] = datetime.now(timezone.utc)
+    result = await users_collection.insert_one(user_data)
+    user_data["_id"] = str(result.inserted_id)
+    return user_data
+
+
+async def get_user_by_username(username: str) -> Optional[dict]:
+    """Get a user by username"""
+    user = await users_collection.find_one({"username": username.lower()})
+    if user:
+        user["_id"] = str(user["_id"])
+    return user
+
+
+async def get_user_by_email(email: str) -> Optional[dict]:
+    """Get a user by email"""
+    user = await users_collection.find_one({"email": email.lower()})
+    if user:
+        user["_id"] = str(user["_id"])
+    return user
 
 
